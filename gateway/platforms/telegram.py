@@ -288,6 +288,13 @@ class TelegramAdapter(BasePlatformAdapter):
             configured = configured.split(",")
         return parse_fallback_ip_env(",".join(str(v) for v in configured) if configured else None)
 
+    def _custom_domains(self) -> list[str]:
+        """Return custom domains from config."""
+        domains = self.config.extra.get("telegram_custom_domains", []) if getattr(self.config, "extra", None) else []
+        if isinstance(domains, str):
+            domains = [d.strip() for d in domains.split(",") if d.strip()]
+        return domains
+
     @staticmethod
     def _looks_like_polling_conflict(error: Exception) -> bool:
         text = str(error).lower()
@@ -681,6 +688,8 @@ class TelegramAdapter(BasePlatformAdapter):
             proxy_url = resolve_proxy_url("TELEGRAM_PROXY")
             disable_fallback = (os.getenv("HERMES_TELEGRAM_DISABLE_FALLBACK_IPS", "").strip().lower() in ("1", "true", "yes", "on"))
             fallback_ips = self._fallback_ips()
+            custom_domains = self._custom_domains()
+
             if not fallback_ips:
                 fallback_ips = await discover_fallback_ips()
                 logger.info(
@@ -689,21 +698,24 @@ class TelegramAdapter(BasePlatformAdapter):
                     ", ".join(fallback_ips),
                 )
 
-            if fallback_ips and not proxy_url and not disable_fallback:
-                logger.info(
-                    "[%s] Telegram fallback IPs active: %s",
-                    self.name,
-                    ", ".join(fallback_ips),
-                )
+            if (fallback_ips or custom_domains) and not proxy_url and not disable_fallback:
+                if custom_domains:
+                    logger.info("[%s] Telegram custom domains active: %s", self.name, ", ".join(custom_domains))
+                if fallback_ips:
+                    logger.info(
+                        "[%s] Telegram fallback IPs active: %s",
+                        self.name,
+                        ", ".join(fallback_ips),
+                    )
                 # Keep request/update pools separate to reduce contention during
                 # polling reconnect + bot API bootstrap/delete_webhook calls.
                 request = HTTPXRequest(
                     **request_kwargs,
-                    httpx_kwargs={"transport": TelegramFallbackTransport(fallback_ips)},
+                    httpx_kwargs={"transport": TelegramFallbackTransport(fallback_ips, custom_domains=custom_domains)},
                 )
                 get_updates_request = HTTPXRequest(
                     **request_kwargs,
-                    httpx_kwargs={"transport": TelegramFallbackTransport(fallback_ips)},
+                    httpx_kwargs={"transport": TelegramFallbackTransport(fallback_ips, custom_domains=custom_domains)},
                 )
             elif proxy_url:
                 logger.info("[%s] Proxy detected; passing explicitly to HTTPXRequest: %s", self.name, proxy_url)

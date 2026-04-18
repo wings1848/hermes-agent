@@ -848,6 +848,14 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             ip.strip() for ip in telegram_fallback_ips.split(",") if ip.strip()
         ]
 
+    telegram_custom_domains = os.getenv("TELEGRAM_CUSTOM_DOMAINS")
+    if telegram_custom_domains:
+        if Platform.TELEGRAM not in config.platforms:
+            config.platforms[Platform.TELEGRAM] = PlatformConfig()
+        config.platforms[Platform.TELEGRAM].extra["telegram_custom_domains"] = [
+            d.strip() for d in telegram_custom_domains.split(",") if d.strip()
+        ]
+
     telegram_home = os.getenv("TELEGRAM_HOME_CHANNEL")
     if telegram_home and Platform.TELEGRAM in config.platforms:
         config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(

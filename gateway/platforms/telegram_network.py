@@ -13,7 +13,7 @@ import asyncio
 import ipaddress
 import logging
 import socket
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 import httpx
 
@@ -49,74 +49,175 @@ def _resolve_proxy_url() -> str | None:
     return resolve_proxy_url("TELEGRAM_PROXY")
 
 
-class TelegramFallbackTransport(httpx.AsyncBaseTransport):
-    """Retry Telegram Bot API requests via fallback IPs while preserving TLS/SNI.
+_NOT_SET = object()
 
-    Requests continue to target https://api.telegram.org/... logically, but on
-    connect failures the underlying TCP connection is retried against a known
-    reachable IP. This is effectively the programmatic equivalent of
-    ``curl --resolve api.telegram.org:443:<ip>``.
+class TelegramFallbackTransport(httpx.AsyncBaseTransport):
+    """Retry Telegram Bot API requests via custom domains and fallback IPs.
+
+    Requests continue to target https://api.telegram.org/... logically, but
+    are retried against a list of custom domains and then fallback IPs on
+    failure. Supports "sticky" routing to the last successful endpoint.
     """
 
-    def __init__(self, fallback_ips: Iterable[str], **transport_kwargs):
+    def __init__(
+        self,
+        fallback_ips: Iterable[str],
+        custom_domains: Optional[Iterable[str]] = None,
+        **transport_kwargs,
+    ):
         self._fallback_ips = [ip for ip in dict.fromkeys(_normalize_fallback_ips(fallback_ips))]
+        self._custom_domains = [d.strip() for d in (custom_domains or []) if d.strip()]
         proxy_url = _resolve_proxy_url()
         if proxy_url and "proxy" not in transport_kwargs:
             transport_kwargs["proxy"] = proxy_url
+
+        self._transport_kwargs = transport_kwargs
         self._primary = httpx.AsyncHTTPTransport(**transport_kwargs)
-        self._fallbacks = {
+        self._domain_transports: dict[str, httpx.AsyncHTTPTransport] = {
+            domain: httpx.AsyncHTTPTransport(**transport_kwargs)
+            for domain in self._custom_domains
+        }
+        self._ip_transports = {
             ip: httpx.AsyncHTTPTransport(**transport_kwargs) for ip in self._fallback_ips
         }
-        self._sticky_ip: Optional[str] = None
+        self._sticky_endpoint: Any = _NOT_SET  # domain string, IP string, or None (primary)
         self._sticky_lock = asyncio.Lock()
 
+    @property
+    def _sticky_ip(self) -> Optional[str]:
+        """Backward compatibility for tests."""
+        return self._sticky_endpoint if self._sticky_endpoint is not _NOT_SET else None
+
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        if request.url.host != _TELEGRAM_API_HOST or not self._fallback_ips:
+        # Only apply fallback logic to Telegram API requests.
+        # Primary is used for all other hosts.
+        if request.url.host != _TELEGRAM_API_HOST:
             return await self._primary.handle_async_request(request)
 
-        sticky_ip = self._sticky_ip
-        attempt_order: list[Optional[str]] = [sticky_ip] if sticky_ip else [None]
-        for ip in self._fallback_ips:
-            if ip != sticky_ip:
-                attempt_order.append(ip)
+        # Build attempt order: Sticky -> Custom Domains -> Primary -> IPs
+        sticky = self._sticky_endpoint
+        attempt_order: list[Optional[str]] = []
+
+        is_sticky_ip = False
+        if sticky and sticky is not _NOT_SET:
+            try:
+                ipaddress.ip_address(sticky)
+                is_sticky_ip = True
+            except ValueError:
+                pass
+
+        if is_sticky_ip:
+            # Original behavior: If an IP is sticky, try it first, then other IPs.
+            # We preserve this to pass existing tests and because if we are using
+            # IP fallbacks, the DNS/Domain path is likely blocked.
+            attempt_order.append(sticky)
+            for ip in self._fallback_ips:
+                if ip != sticky:
+                    attempt_order.append(ip)
+        else:
+            # Domain-first priority: Sticky -> Custom Domains -> Primary -> IPs
+            if sticky is not _NOT_SET:
+                attempt_order.append(sticky)
+
+            # Add custom domains (excluding sticky)
+            for domain in self._custom_domains:
+                if domain != sticky:
+                    attempt_order.append(domain)
+
+            # Add primary (None represents api.telegram.org)
+            if None not in attempt_order:
+                attempt_order.append(None)
+
+            # Add IP fallbacks
+            for ip in self._fallback_ips:
+                if ip != sticky:
+                    attempt_order.append(ip)
 
         last_error: Exception | None = None
-        for ip in attempt_order:
-            candidate = request if ip is None else _rewrite_request_for_ip(request, ip)
-            transport = self._primary if ip is None else self._fallbacks[ip]
+        for endpoint in attempt_order:
+            # endpoint is:
+            # - None: Primary (api.telegram.org)
+            # - string: Custom Domain or IP
+            
+            is_ip = False
+            if endpoint:
+                try:
+                    ipaddress.ip_address(endpoint)
+                    is_ip = True
+                except ValueError:
+                    pass
+
+            if endpoint is None:
+                candidate = request
+                transport = self._primary
+            elif is_ip:
+                candidate = _rewrite_request_for_ip(request, endpoint)
+                transport = self._ip_transports[endpoint]
+            else:
+                candidate = _rewrite_request_for_custom_domain(request, endpoint)
+                # Ensure we have a transport for this domain (e.g. if added via env after init)
+                if endpoint not in self._domain_transports:
+                    self._domain_transports[endpoint] = httpx.AsyncHTTPTransport(**self._transport_kwargs)
+                transport = self._domain_transports[endpoint]
+
             try:
                 response = await transport.handle_async_request(candidate)
-                if ip is not None and self._sticky_ip != ip:
+                # Successful request: update sticky endpoint
+                if self._sticky_endpoint is _NOT_SET or self._sticky_endpoint != endpoint:
                     async with self._sticky_lock:
-                        if self._sticky_ip != ip:
-                            self._sticky_ip = ip
+                        if self._sticky_endpoint is _NOT_SET or self._sticky_endpoint != endpoint:
+                            self._sticky_endpoint = endpoint
+                            desc = endpoint if endpoint else _TELEGRAM_API_HOST
                             logger.warning(
-                                "[Telegram] Primary api.telegram.org path unreachable; using sticky fallback IP %s",
-                                ip,
+                                "[Telegram] Path successful; using sticky endpoint %s",
+                                desc,
                             )
                 return response
             except Exception as exc:
                 last_error = exc
                 if not _is_retryable_connect_error(exc):
                     raise
-                if ip is None:
-                    logger.warning(
-                        "[Telegram] Primary api.telegram.org connection failed (%s); trying fallback IPs %s",
-                        exc,
-                        ", ".join(self._fallback_ips),
-                    )
-                    continue
-                logger.warning("[Telegram] Fallback IP %s failed: %s", ip, exc)
+                
+                desc = endpoint if endpoint else _TELEGRAM_API_HOST
+                if endpoint == sticky:
+                    logger.warning("[Telegram] Sticky endpoint %s failed; falling back", desc)
+                else:
+                    logger.warning("[Telegram] Attempt %s failed: %s", desc, exc)
                 continue
 
         if last_error is None:
-            raise RuntimeError("All Telegram fallback IPs exhausted but no error was recorded")
+            raise RuntimeError("All Telegram endpoints exhausted but no error was recorded")
         raise last_error
 
     async def aclose(self) -> None:
         await self._primary.aclose()
-        for transport in self._fallbacks.values():
+        for transport in self._domain_transports.values():
             await transport.aclose()
+        for transport in self._ip_transports.values():
+            await transport.aclose()
+
+
+def _rewrite_request_for_custom_domain(request: httpx.Request, domain: str) -> httpx.Request:
+    """Rewrite request to use a custom domain.
+    
+    Unlike IP fallbacks, custom domains use their own hostname for TLS SNI
+    and the HTTP Host header.
+    """
+    url = request.url.copy_with(host=domain)
+    headers = request.headers.copy()
+    # Explicitly update Host header
+    headers["host"] = domain
+    
+    extensions = dict(request.extensions)
+    extensions.pop("sni_hostname", None)
+    
+    return httpx.Request(
+        method=request.method,
+        url=url,
+        headers=headers,
+        stream=request.stream,
+        extensions=extensions,
+    )
 
 
 def _normalize_fallback_ips(values: Iterable[str]) -> list[str]:
