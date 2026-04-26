@@ -226,7 +226,7 @@ def curses_radiolist(
 
                     stdscr.addnstr(
                         row, 0,
-                        "  \u2191\u2193 navigate  ENTER/SPACE select  ESC cancel",
+                        "  \u2191\u2193 导航  ENTER/SPACE 选择  ESC 取消",
                         max_x - 1, curses.A_DIM,
                     )
                     row += 1

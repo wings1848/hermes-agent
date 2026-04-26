@@ -2018,7 +2018,7 @@ def _prompt_provider_choice(choices, *, default=0):
     try:
         from hermes_cli.setup import _curses_prompt_choice
 
-        idx = _curses_prompt_choice("Select provider:", choices, default)
+        idx = _curses_prompt_choice("选择提供商:", choices, default)
         if idx >= 0:
             print()
             return idx
@@ -2026,7 +2026,7 @@ def _prompt_provider_choice(choices, *, default=0):
         pass
 
     # Fallback: numbered list
-    print("Select provider:")
+    print("选择提供商:")
     for i, c in enumerate(choices, 1):
         marker = "→" if i - 1 == default else " "
         print(f"  {marker} {i}. {c}")
@@ -2857,7 +2857,7 @@ def _remove_custom_provider(config):
             menu_highlight_style=("fg_red",),
             cycle_cursor=True,
             clear_screen=False,
-            title="Select provider to remove:",
+            title="选择移除的提供商:",
         )
         idx = menu.show()
         from hermes_cli.curses_ui import flush_stdin
@@ -6337,8 +6337,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
             logger.debug("Legacy unit check during update failed: %s", e)
 
         print()
-        print("Tip: You can now select a provider and model:")
-        print("  hermes model              # Select provider and model")
+        print("Tip: 您现在可以选择一个提供商和模型:")
+        print("  hermes model              # 选择 提供商 和 模型")
 
     except subprocess.CalledProcessError as e:
         if sys.platform == "win32":
