@@ -66,15 +66,13 @@ from hermes_cli.default_soul import DEFAULT_SOUL_MD
 
 
 # =============================================================================
-# Managed mode (NixOS declarative config)
+# Managed mode (declarative config)
 # =============================================================================
 
 _MANAGED_TRUE_VALUES = ("true", "1", "yes")
 _MANAGED_SYSTEM_NAMES = {
     "brew": "Homebrew",
     "homebrew": "Homebrew",
-    "nix": "NixOS",
-    "nixos": "NixOS",
 }
 
 
@@ -83,23 +81,12 @@ def get_managed_system() -> Optional[str]:
     raw = os.getenv("HERMES_MANAGED", "").strip()
     if raw:
         normalized = raw.lower()
-        if normalized in _MANAGED_TRUE_VALUES:
-            return "NixOS"
         return _MANAGED_SYSTEM_NAMES.get(normalized, raw)
-
-    managed_marker = get_hermes_home() / ".managed"
-    if managed_marker.exists():
-        return "NixOS"
     return None
 
 
 def is_managed() -> bool:
-    """Check if Hermes is running in package-manager-managed mode.
-
-    Two signals: the HERMES_MANAGED env var (set by the systemd service),
-    or a .managed marker file in HERMES_HOME (set by the NixOS activation
-    script, so interactive shells also see it).
-    """
+    """Check if Hermes is running in package-manager-managed mode."""
     return get_managed_system() is not None
 
 
@@ -108,8 +95,6 @@ def get_managed_update_command() -> Optional[str]:
     managed_system = get_managed_system()
     if managed_system == "Homebrew":
         return "brew upgrade hermes-agent"
-    if managed_system == "NixOS":
-        return "sudo nixos-rebuild switch"
     return None
 
 
@@ -121,16 +106,6 @@ def recommended_update_command() -> str:
 def format_managed_message(action: str = "modify this Hermes installation") -> str:
     """Build a user-facing error for managed installs."""
     managed_system = get_managed_system() or "a package manager"
-    raw = os.getenv("HERMES_MANAGED", "").strip().lower()
-
-    if managed_system == "NixOS":
-        env_hint = "true" if raw in _MANAGED_TRUE_VALUES else raw or "true"
-        return (
-            f"Cannot {action}: this Hermes installation is managed by NixOS "
-            f"(HERMES_MANAGED={env_hint}).\n"
-            "Edit services.hermes-agent.settings in your configuration.nix and run:\n"
-            "  sudo nixos-rebuild switch"
-        )
 
     if managed_system == "Homebrew":
         env_hint = raw or "homebrew"
@@ -152,52 +127,7 @@ def managed_error(action: str = "modify configuration"):
 
 
 # =============================================================================
-# Container-aware CLI (NixOS container mode)
-# =============================================================================
 
-def get_container_exec_info() -> Optional[dict]:
-    """Read container mode metadata from HERMES_HOME/.container-mode.
-
-    Returns a dict with keys: backend, container_name, exec_user, hermes_bin
-    or None if container mode is not active, we're already inside the
-    container, or HERMES_DEV=1 is set.
-
-    The .container-mode file is written by the NixOS activation script when
-    container.enable = true. It tells the host CLI to exec into the container
-    instead of running locally.
-    """
-    if os.environ.get("HERMES_DEV") == "1":
-        return None
-
-    from hermes_constants import is_container
-    if is_container():
-        return None
-
-    container_mode_file = get_hermes_home() / ".container-mode"
-
-    try:
-        info = {}
-        with open(container_mode_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if "=" in line and not line.startswith("#"):
-                    key, _, value = line.partition("=")
-                    info[key.strip()] = value.strip()
-    except FileNotFoundError:
-        return None
-    # All other exceptions (PermissionError, malformed data, etc.) propagate
-
-    backend = info.get("backend", "docker")
-    container_name = info.get("container_name", "hermes-agent")
-    exec_user = info.get("exec_user", "hermes")
-    hermes_bin = info.get("hermes_bin", "/data/current-package/bin/hermes")
-
-    return {
-        "backend": backend,
-        "container_name": container_name,
-        "exec_user": exec_user,
-        "hermes_bin": hermes_bin,
-    }
 
 
 # =============================================================================
@@ -222,9 +152,8 @@ def get_project_root() -> Path:
 def _secure_dir(path):
     """Set directory to owner-only access (0700 by default). No-op on Windows.
 
-    Skipped in managed mode — the NixOS module sets group-readable
-    permissions (0750) so interactive users in the hermes group can
-    share state with the gateway service.
+    Skipped in managed mode — the package manager sets group-readable
+    permissions so interactive users can share state with the service.
 
     The mode can be overridden via the HERMES_HOME_MODE environment variable
     (e.g. HERMES_HOME_MODE=0701) for deployments where a web server (nginx,
@@ -273,8 +202,8 @@ def _is_container() -> bool:
 def _secure_file(path):
     """Set file to owner-only read/write (0600). No-op on Windows.
 
-    Skipped in managed mode — the NixOS activation script sets
-    group-readable permissions (0640) on config files.
+    Skipped in managed mode — the package manager sets
+    group-readable permissions on config files.
 
     Skipped in containers — Docker/Podman volume mounts often need broader
     permissions.  Set HERMES_SKIP_CHMOD=1 to force-skip on other systems.
@@ -300,7 +229,7 @@ def _ensure_default_soul_md(home: Path) -> None:
 def ensure_hermes_home():
     """Ensure ~/.hermes directory structure exists with secure permissions.
 
-    In managed mode (NixOS), dirs are created by the activation script with
+    In managed mode, dirs are created by the package manager with
     setgid + group-writable (2770). We skip mkdir and set umask(0o007) so
     any files created (e.g. SOUL.md) are group-writable (0660).
     """
@@ -322,18 +251,18 @@ def ensure_hermes_home():
 
 
 def _ensure_hermes_home_managed(home: Path):
-    """Managed-mode variant: verify dirs exist (activation creates them), seed SOUL.md."""
+    """Managed-mode variant: verify dirs exist, seed SOUL.md."""
     if not home.is_dir():
         raise RuntimeError(
             f"HERMES_HOME {home} does not exist. "
-            "Run 'sudo nixos-rebuild switch' first."
+            "Reinstall with your package manager."
         )
     for subdir in ("cron", "sessions", "logs", "memories"):
         d = home / subdir
         if not d.is_dir():
             raise RuntimeError(
                 f"{d} does not exist. "
-                "Run 'sudo nixos-rebuild switch' first."
+                "Reinstall with your package manager."
             )
     # Inside umask(0o007) scope — SOUL.md will be created as 0660
     _ensure_default_soul_md(home)

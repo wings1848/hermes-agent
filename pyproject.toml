@@ -82,7 +82,7 @@ google = [
   # Required by the google-workspace skill (Gmail, Calendar, Drive, Contacts,
   # Sheets, Docs).  Declared here so packagers (Nix, Homebrew) ship them with
   # the [all] extra and users don't hit runtime `pip install` paths that fail
-  # in environments without pip (e.g. Nix-managed Python).
+  # in environments without pip (e.g. managed Python).
   "google-api-python-client>=2.100,<3",
   "google-auth-oauthlib>=1.0,<2",
   "google-auth-httplib2>=0.2,<1",

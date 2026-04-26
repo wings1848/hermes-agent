@@ -42,7 +42,7 @@ _AGENT_CACHE_MAX_SIZE = 128
 _AGENT_CACHE_IDLE_TTL_SECS = 3600.0  # evict agents idle for >1h
 
 # ---------------------------------------------------------------------------
-# SSL certificate auto-detection for NixOS and other non-standard systems.
+# SSL certificate auto-detection for non-standard systems.
 # Must run BEFORE any HTTP library (discord, aiohttp, etc.) is imported.
 # ---------------------------------------------------------------------------
 def _ensure_ssl_certs() -> None:

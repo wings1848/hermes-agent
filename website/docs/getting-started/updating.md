@@ -146,24 +146,6 @@ Rolling back may cause config incompatibilities if new options were added. Run `
 
 ### Note for Nix users
 
-If you installed via Nix flake, updates are managed through the Nix package manager:
-
-```bash
-# Update the flake input
-nix flake update hermes-agent
-
-# Or rebuild with the latest
-nix profile upgrade hermes-agent
-```
-
-Nix installations are immutable — rollback is handled by Nix's generation system:
-
-```bash
-nix profile rollback
-```
-
-See [Nix Setup](./nix-setup.md) for more details.
-
 ---
 
 ## Uninstalling
