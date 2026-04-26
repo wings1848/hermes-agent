@@ -108,7 +108,7 @@ def format_managed_message(action: str = "modify this Hermes installation") -> s
     managed_system = get_managed_system() or "a package manager"
 
     if managed_system == "Homebrew":
-        env_hint = raw or "homebrew"
+        env_hint = os.getenv("HERMES_MANAGED", "").strip() or "homebrew"
         return (
             f"Cannot {action}: this Hermes installation is managed by Homebrew "
             f"(HERMES_MANAGED={env_hint}).\n"
