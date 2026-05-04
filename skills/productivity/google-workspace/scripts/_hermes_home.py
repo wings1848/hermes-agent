@@ -1,7 +1,7 @@
 """Resolve HERMES_HOME for standalone skill scripts.
 
 Skill scripts may run outside the Hermes process (e.g. system Python,
-nix env, CI) where ``hermes_constants`` is not importable.  This module
+managed env, CI) where ``hermes_constants`` is not importable.  This module
 provides the same ``get_hermes_home()`` and ``display_hermes_home()``
 contracts as ``hermes_constants`` without requiring it on ``sys.path``.
 

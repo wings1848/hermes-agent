@@ -3,7 +3,7 @@ import subprocess
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SETUP_SCRIPT = REPO_ROOT / "setup-hermes.sh"
+SETUP_SCRIPT = REPO_ROOT / "scripts" / "setup-hermes.sh"
 
 
 def test_setup_hermes_script_is_valid_shell():
@@ -16,6 +16,6 @@ def test_setup_hermes_script_has_termux_path():
 
     assert "is_termux()" in content
     assert ".[termux]" in content
-    assert "constraints-termux.txt" in content
+    assert "packaging/constraints/termux.txt" in content
     assert "$PREFIX/bin" in content
     assert "Skipping tinker-atropos on Termux" in content

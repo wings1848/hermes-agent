@@ -7,7 +7,6 @@ on:
       - '**/*.py'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'Dockerfile'
       - 'docker/**'
       - '.github/workflows/docker-publish.yml'
   release:
@@ -45,7 +44,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: .
-          file: Dockerfile
+          file: docker/Dockerfile
           load: true
           platforms: linux/amd64
           tags: nousresearch/hermes-agent:test
@@ -79,7 +78,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: .
-          file: Dockerfile
+          file: docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: nousresearch/hermes-agent:latest
@@ -91,7 +90,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: .
-          file: Dockerfile
+          file: docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: nousresearch/hermes-agent:${{ github.event.release.tag_name }}

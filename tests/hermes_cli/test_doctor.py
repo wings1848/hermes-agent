@@ -327,6 +327,7 @@ def test_run_doctor_termux_treats_docker_and_browser_warnings_as_expected(monkey
         return real_which(cmd)
 
     monkeypatch.setattr(doctor_mod.shutil, "which", fake_which)
+    monkeypatch.setattr(doctor_mod, "_is_termux", lambda: True)
 
     out = helper._run_doctor_and_capture(monkeypatch, tmp_path, provider="")
 

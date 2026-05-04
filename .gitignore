@@ -1,53 +1,44 @@
 .DS_Store
 /venv/
-/_pycache/
-*.pyc*
-__pycache__/
 .venv/
 .vscode/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment files
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.development
-.env.test
-export*
-__pycache__/model_tools.cpython-310.pyc
-__pycache__/web_tools.cpython-310.pyc
+.env.*.local
+
+# Logs & data
 logs/
 data/
-.pytest_cache/
 tmp/
 temp_vision_images/
-hermes-*/*
-examples/
-tests/quick_test_dataset.jsonl
-tests/sample_dataset.jsonl
-run_datagen_kimik2-thinking.sh
-run_datagen_megascience_glm4-6.sh
-run_datagen_sonnet.sh
-source-data/*
-run_datagen_megascience_glm4-6.sh
-data/*
-node_modules/
-browser-use/
-agent-browser/
-# Private keys
-*.ppk
-*.pem
-privvy*
 images/
-__pycache__/
-hermes_agent.egg-info/
-wandb/
 testlogs
 
-# CLI config (may contain sensitive SSH paths)
+# Build / distribution
+*.egg-info/
+dist/
+build/
+node_modules/
+
+# Test cache
+.pytest_cache/
+wandb/
+
+# Generated/exported files
+export*
+hermes-*/*
+source-data/*
 cli-config.yaml
 
-# Skills Hub state (lives in ~/.hermes/skills/.hub/ at runtime, but just in case)
+# Skills Hub state
 skills/.hub/
+
+# Ignored / worktree / runtime data
 ignored/
 .worktrees/
 environments/benchmarks/evals/
@@ -55,18 +46,26 @@ environments/benchmarks/evals/
 # Web UI build output
 hermes_cli/web_dist/
 
-# Web UI assets — synced from @nous-research/ui at build time via
-# `npm run sync-assets` (see web/package.json).
+# Web UI synced assets
 web/public/fonts/
 web/public/ds-assets/
 
-# Release script temp files
+# Release / CI temp files
 .release_notes.md
 mini-swe-agent/
 
-# Nix
+# Direnv
 .direnv/
-.nix-stamps/
 result
-website/static/api/skills-index.json
+
+# Model dev
 models-dev-upstream/
+website/static/api/skills-index.json
+
+# Task orchestrator
+.agents/
+.pi/
+.pi-lens/
+
+# Stale run scripts (legacy datagen)
+run_datagen_*.sh

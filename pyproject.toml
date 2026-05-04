@@ -83,9 +83,9 @@ dingtalk = ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0", "qrcode>
 feishu = ["lark-oapi>=1.5.3,<2", "qrcode>=7.0,<8"]
 google = [
   # Required by the google-workspace skill (Gmail, Calendar, Drive, Contacts,
-  # Sheets, Docs).  Declared here so packagers (Nix, Homebrew) ship them with
+  # Sheets, Docs).  Declared here so packagers (Homebrew) ship them with
   # the [all] extra and users don't hit runtime `pip install` paths that fail
-  # in environments without pip (e.g. Nix-managed Python).
+  # in environments without pip (e.g. managed Python).
   "google-api-python-client>=2.100,<3",
   "google-auth-oauthlib>=1.0,<2",
   "google-auth-httplib2>=0.2,<1",
@@ -172,5 +172,5 @@ not-iterable = "ignore"
 [tool.ruff]
 exclude = ["*"]
 
-[tool.uv]
-exclude-newer = "7 days"
+# [tool.uv]
+# exclude-newer = "7 days"

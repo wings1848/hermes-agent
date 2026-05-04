@@ -6,7 +6,7 @@
 # Uses uv for desktop/server setup and Python's stdlib venv + pip on Termux.
 #
 # Usage:
-#   ./setup-hermes.sh
+#   ./scripts/setup-hermes.sh
 #
 # This script:
 # 1. Detects desktop/server vs Android/Termux setup path
@@ -166,11 +166,11 @@ echo -e "${CYAN}→${NC} Installing dependencies..."
 if is_termux; then
     export ANDROID_API_LEVEL="$(getprop ro.build.version.sdk 2>/dev/null || printf '%s' "${ANDROID_API_LEVEL:-}")"
     echo -e "${CYAN}→${NC} Termux detected — installing the tested Android bundle"
-    "$SETUP_PYTHON" -m pip install --upgrade pip setuptools wheel
-    if [ -f "constraints-termux.txt" ]; then
-        "$SETUP_PYTHON" -m pip install -e ".[termux]" -c constraints-termux.txt || {
+    CONSTRAINTS_FILE="../packaging/constraints/termux.txt"
+    if [ -f "$CONSTRAINTS_FILE" ]; then
+        "$SETUP_PYTHON" -m pip install -e ".[termux]" -c "$CONSTRAINTS_FILE" || {
             echo -e "${YELLOW}⚠${NC} Termux bundle install failed, falling back to base install..."
-            "$SETUP_PYTHON" -m pip install -e "." -c constraints-termux.txt
+            "$SETUP_PYTHON" -m pip install -e "." -c "$CONSTRAINTS_FILE"
         }
     else
         "$SETUP_PYTHON" -m pip install -e ".[termux]" || "$SETUP_PYTHON" -m pip install -e "."

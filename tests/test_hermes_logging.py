@@ -665,6 +665,7 @@ class TestAddRotatingHandler:
         """Handlers rely on record factory, not per-handler _SessionFilter."""
         log_path = tmp_path / "no_session_filter.log"
         logger = logging.getLogger("_test_no_session_filter")
+        logger.setLevel(logging.INFO)  # explicit level (root defaults to WARNING under pytest)
         formatter = logging.Formatter("%(session_tag)s%(message)s")
 
         hermes_logging._add_rotating_handler(

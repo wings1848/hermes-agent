@@ -70,8 +70,12 @@ def _enter_existing_install_patches(stack, **extra):
 
     # Named mocks caller wants to assert on.
     named = {}
-    for name, target in extra.items():
-        named[name] = stack.enter_context(patch(target))
+    for name, target_spec in extra.items():
+        if isinstance(target_spec, tuple):
+            target, kwargs = target_spec
+            named[name] = stack.enter_context(patch(target, **kwargs))
+        else:
+            named[name] = stack.enter_context(patch(target_spec))
     return named
 
 
@@ -99,16 +103,16 @@ def _enter_fresh_install_patches(stack, **extra):
 
 
 class TestExistingInstallDefault:
-    """Bare `hermes setup` on an existing install = full reconfigure wizard."""
+    """Bare `hermes setup` on an existing install = returning-user menu then full wizard."""
 
-    def test_bare_setup_runs_full_reconfigure_without_menu(self, existing_install):
-        """No menu, no prompt_choice — just run every section in sequence."""
+    def test_bare_setup_shows_menu_then_full_reconfigure(self, existing_install):
+        """Returning-user menu is shown; choosing 'full setup' (index 1) runs every section."""
         args = _make_setup_args()  # no flags
 
         with ExitStack() as stack:
             m = _enter_existing_install_patches(
                 stack,
-                prompt_choice="hermes_cli.setup.prompt_choice",
+                prompt_choice=("hermes_cli.setup.prompt_choice", {"return_value": 1}),
                 quick="hermes_cli.setup._run_quick_setup",
                 model="hermes_cli.setup.setup_model_provider",
                 terminal="hermes_cli.setup.setup_terminal_backend",
@@ -119,25 +123,25 @@ class TestExistingInstallDefault:
             from hermes_cli.setup import run_setup_wizard
             run_setup_wizard(args)
 
-        # No menu shown.
-        m["prompt_choice"].assert_not_called()
+        # Menu was shown (returning-user menu replaced the old auto-reconfigure flow).
+        m["prompt_choice"].assert_called_once()
         # Quick-setup path NOT taken.
         m["quick"].assert_not_called()
-        # All five sections ran.
+        # All five sections ran (user chose "完整设置").
         m["model"].assert_called_once()
         m["terminal"].assert_called_once()
         m["agent"].assert_called_once()
         m["gateway"].assert_called_once()
         m["tools"].assert_called_once()
 
-    def test_reconfigure_flag_is_backwards_compat_noop(self, existing_install):
-        """`hermes setup --reconfigure` behaves the same as bare `hermes setup`."""
+    def test_reconfigure_flag_shows_menu_same_as_bare_setup(self, existing_install):
+        """`hermes setup --reconfigure` behaves the same as bare setup with menu."""
         args = _make_setup_args(reconfigure=True)
 
         with ExitStack() as stack:
             m = _enter_existing_install_patches(
                 stack,
-                prompt_choice="hermes_cli.setup.prompt_choice",
+                prompt_choice=("hermes_cli.setup.prompt_choice", {"return_value": 1}),
                 model="hermes_cli.setup.setup_model_provider",
                 terminal="hermes_cli.setup.setup_terminal_backend",
                 agent="hermes_cli.setup.setup_agent_settings",
@@ -147,7 +151,8 @@ class TestExistingInstallDefault:
             from hermes_cli.setup import run_setup_wizard
             run_setup_wizard(args)
 
-        m["prompt_choice"].assert_not_called()
+        # Menu was shown (same as bare `hermes setup`).
+        m["prompt_choice"].assert_called_once()
         m["model"].assert_called_once()
         m["terminal"].assert_called_once()
         m["agent"].assert_called_once()

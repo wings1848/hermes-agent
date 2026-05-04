@@ -631,115 +631,7 @@ def _resolve_last_session(source: str = "cli") -> Optional[str]:
     return None
 
 
-def _probe_container(cmd: list, backend: str, via_sudo: bool = False):
-    """Run a container inspect probe, returning the CompletedProcess.
 
-    Catches TimeoutExpired specifically for a human-readable message;
-    all other exceptions propagate naturally.
-    """
-    try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-    except subprocess.TimeoutExpired:
-        label = f"sudo {backend}" if via_sudo else backend
-        print(
-            f"Error: timed out waiting for {label} to respond.\n"
-            f"The {backend} daemon may be unresponsive or starting up.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-
-def _exec_in_container(container_info: dict, cli_args: list):
-    """Replace the current process with a command inside the managed container.
-
-    Probes whether sudo is needed (rootful containers), then os.execvp
-    into the container. On success the Python process is replaced entirely
-    and the container's exit code becomes the process exit code (OS semantics).
-    On failure, OSError propagates naturally.
-
-    Args:
-        container_info: dict with backend, container_name, exec_user, hermes_bin
-        cli_args: the original CLI arguments (everything after 'hermes')
-    """
-
-    backend = container_info["backend"]
-    container_name = container_info["container_name"]
-    exec_user = container_info["exec_user"]
-    hermes_bin = container_info["hermes_bin"]
-
-    runtime = shutil.which(backend)
-    if not runtime:
-        print(
-            f"Error: {backend} not found on PATH. Cannot route to container.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    # Rootful containers (NixOS systemd service) are invisible to unprivileged
-    # users — Podman uses per-user namespaces, Docker needs group access.
-    # Probe whether the runtime can see the container; if not, try via sudo.
-    sudo_path = None
-    probe = _probe_container(
-        [runtime, "inspect", "--format", "ok", container_name],
-        backend,
-    )
-    if probe.returncode != 0:
-        sudo_path = shutil.which("sudo")
-        if sudo_path:
-            probe2 = _probe_container(
-                [sudo_path, "-n", runtime, "inspect", "--format", "ok", container_name],
-                backend,
-                via_sudo=True,
-            )
-            if probe2.returncode != 0:
-                print(
-                    f"Error: container '{container_name}' not found via {backend}.\n"
-                    f"\n"
-                    f"The container is likely running as root. Your user cannot see it\n"
-                    f"because {backend} uses per-user namespaces. Grant passwordless\n"
-                    f"sudo for {backend} — the -n (non-interactive) flag is required\n"
-                    f"because a password prompt would hang or break piped commands.\n"
-                    f"\n"
-                    f"On NixOS:\n"
-                    f"\n"
-                    f"  security.sudo.extraRules = [{{\n"
-                    f'    users = [ "{os.getenv("USER", "your-user")}" ];\n'
-                    f'    commands = [{{ command = "{runtime}"; options = [ "NOPASSWD" ]; }}];\n'
-                    f"  }}];\n"
-                    f"\n"
-                    f"Or run: sudo hermes {' '.join(cli_args)}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-        else:
-            print(
-                f"Error: container '{container_name}' not found via {backend}.\n"
-                f"The container may be running under root. Try: sudo hermes {' '.join(cli_args)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    is_tty = sys.stdin.isatty()
-    tty_flags = ["-it"] if is_tty else ["-i"]
-
-    env_flags = []
-    for var in ("TERM", "COLORTERM", "LANG", "LC_ALL"):
-        val = os.environ.get(var)
-        if val:
-            env_flags.extend(["-e", f"{var}={val}"])
-
-    cmd_prefix = [sudo_path, "-n", runtime] if sudo_path else [runtime]
-    exec_cmd = (
-        cmd_prefix
-        + ["exec"]
-        + tty_flags
-        + ["-u", exec_user]
-        + env_flags
-        + [container_name, hermes_bin]
-        + cli_args
-    )
-
-    os.execvp(exec_cmd[0], exec_cmd)
 
 
 def _resolve_session_by_name_or_id(name_or_id: str) -> Optional[str]:
@@ -1049,7 +941,7 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
             sys.exit(1)
         return path
 
-    # pre-built dist + node_modules (nix / full HERMES_TUI_DIR) skips npm.
+    # pre-built dist + node_modules (HERMES_TUI_DIR) skips npm.
     if not tui_dev:
         ext_dir = os.environ.get("HERMES_TUI_DIR")
         if ext_dir:
@@ -2266,7 +2158,7 @@ def _prompt_provider_choice(choices, *, default=0):
     try:
         from hermes_cli.setup import _curses_prompt_choice
 
-        idx = _curses_prompt_choice("Select provider:", choices, default)
+        idx = _curses_prompt_choice("选择提供商:", choices, default)
         if idx >= 0:
             print()
             return idx
@@ -2274,7 +2166,7 @@ def _prompt_provider_choice(choices, *, default=0):
         pass
 
     # Fallback: numbered list
-    print("Select provider:")
+    print("选择提供商:")
     for i, c in enumerate(choices, 1):
         marker = "→" if i - 1 == default else " "
         print(f"  {marker} {i}. {c}")
@@ -3362,7 +3254,7 @@ def _remove_custom_provider(config):
             menu_highlight_style=("fg_red",),
             cycle_cursor=True,
             clear_screen=False,
-            title="Select provider to remove:",
+            title="选择移除的提供商:",
         )
         idx = menu.show()
         from hermes_cli.curses_ui import flush_stdin
@@ -7648,8 +7540,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         _kill_stale_dashboard_processes()
 
         print()
-        print("Tip: You can now select a provider and model:")
-        print("  hermes model              # Select provider and model")
+        print("Tip: 您现在可以选择一个提供商和模型:")
+        print("  hermes model              # 选择 提供商 和 模型")
 
     except subprocess.CalledProcessError as e:
         if sys.platform == "win32":
@@ -10298,20 +10190,6 @@ Examples:
     # Pre-process argv so unquoted multi-word session names after -c / -r
     # are merged into a single token before argparse sees them.
     # e.g. ``hermes -c Pokemon Agent Dev`` → ``hermes -c 'Pokemon Agent Dev'``
-    # ── Container-aware routing ────────────────────────────────────────
-    # When NixOS container mode is active, route ALL subcommands into
-    # the managed container.  This MUST run before parse_args() so that
-    # --help, unrecognised flags, and every subcommand are forwarded
-    # transparently instead of being intercepted by argparse on the host.
-    from hermes_cli.config import get_container_exec_info
-
-    container_info = get_container_exec_info()
-    if container_info:
-        _exec_in_container(container_info, sys.argv[1:])
-        # Unreachable: os.execvp never returns on success (process is replaced)
-        # and raises OSError on failure (which propagates as a traceback).
-        sys.exit(1)
-
     _processed_argv = _coalesce_session_name_args(sys.argv[1:])
 
     # ── Defensive subparser routing (bpo-9338 workaround) ───────────
