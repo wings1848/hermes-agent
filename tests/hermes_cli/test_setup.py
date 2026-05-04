@@ -6,7 +6,6 @@ import types
 
 import pytest
 
-from hermes_cli.auth import get_active_provider
 from hermes_cli.config import load_config, save_config
 from hermes_cli import setup as setup_mod
 from hermes_cli.setup import setup_model_provider
@@ -189,8 +188,8 @@ def test_setup_gateway_skips_service_install_when_systemctl_missing(monkeypatch,
     setup_mod.setup_gateway({})
 
     out = capsys.readouterr().out
-    assert "Messaging platforms configured!" in out
-    assert "Start the gateway to bring your bots online:" in out
+    assert "消息平台已配置！" in out
+    assert "启动网关以使您的 Bot 上线：" in out
     assert "hermes gateway" in out
 
 
@@ -232,7 +231,7 @@ def test_setup_gateway_in_container_shows_docker_guidance(monkeypatch, capsys):
     setup_mod.setup_gateway({})
 
     out = capsys.readouterr().out
-    assert "Messaging platforms configured!" in out
+    assert "消息平台已配置！" in out
     assert "docker" in out.lower() or "Docker" in out
     assert "restart" in out.lower()
 
@@ -417,9 +416,9 @@ def test_modal_setup_can_use_nous_subscription_without_modal_creds(tmp_path, mon
     config = load_config()
 
     def fake_prompt_choice(question, choices, default=0):
-        if question == "Select terminal backend:":
+        if question == "选择终端后端:":
             return 2
-        if question == "Select how Modal execution should be billed:":
+        if question == "选择 Modal 执行的计费方式：":
             return 0
         raise AssertionError(f"Unexpected prompt_choice call: {question}")
 
@@ -450,7 +449,7 @@ def test_modal_setup_can_use_nous_subscription_without_modal_creds(tmp_path, mon
     out = capsys.readouterr().out
     assert config["terminal"]["backend"] == "modal"
     assert config["terminal"]["modal_mode"] == "managed"
-    assert "bill to your subscription" in out
+    assert "费用计入您的订阅" in out
 
 
 def test_modal_setup_persists_direct_mode_when_user_chooses_their_own_account(tmp_path, monkeypatch):
@@ -461,9 +460,9 @@ def test_modal_setup_persists_direct_mode_when_user_chooses_their_own_account(tm
     config = load_config()
 
     def fake_prompt_choice(question, choices, default=0):
-        if question == "Select terminal backend:":
+        if question == "选择终端后端:":
             return 2
-        if question == "Select how Modal execution should be billed:":
+        if question == "选择 Modal 执行的计费方式：":
             return 1
         raise AssertionError(f"Unexpected prompt_choice call: {question}")
 
@@ -502,7 +501,7 @@ def test_vercel_setup_configures_access_token_auth(tmp_path, monkeypatch):
     config = load_config()
 
     def fake_prompt_choice(question, choices, default=0):
-        if question == "Select terminal backend:":
+        if question == "选择终端后端:":
             return 5
         raise AssertionError(f"Unexpected prompt_choice call: {question}")
 
@@ -543,7 +542,7 @@ def test_vercel_setup_prefills_project_and_team_from_link_file(tmp_path, monkeyp
     config["terminal"]["container_disk"] = 999
 
     def fake_prompt_choice(question, choices, default=0):
-        if question == "Select terminal backend:":
+        if question == "选择终端后端:":
             return 5
         raise AssertionError(f"Unexpected prompt_choice call: {question}")
 

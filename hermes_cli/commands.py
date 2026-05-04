@@ -33,28 +33,31 @@ try:
     from prompt_toolkit.completion import Completer, Completion
 except ImportError:  # pragma: no cover
     AutoSuggest = object  # type: ignore[assignment,misc]
-    Completer = object    # type: ignore[assignment,misc]
-    Suggestion = None     # type: ignore[assignment]
-    Completion = None     # type: ignore[assignment]
+    Completer = object  # type: ignore[assignment,misc]
+    Suggestion = None  # type: ignore[assignment]
+    Completion = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
 # CommandDef dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CommandDef:
     """Definition of a single slash command."""
 
-    name: str                          # canonical name without slash: "background"
-    description: str                   # human-readable description
-    category: str                      # "Session", "Configuration", etc.
-    aliases: tuple[str, ...] = ()      # alternative names: ("bg",)
-    args_hint: str = ""                # argument placeholder: "<prompt>", "[name]"
+    name: str  # canonical name without slash: "background"
+    description: str  # human-readable description
+    category: str  # "Session", "Configuration", etc.
+    aliases: tuple[str, ...] = ()  # alternative names: ("bg",)
+    args_hint: str = ""  # argument placeholder: "<prompt>", "[name]"
     subcommands: tuple[str, ...] = ()  # tab-completable subcommands
-    cli_only: bool = False             # only available in CLI
-    gateway_only: bool = False         # only available in gateway/messaging
-    gateway_config_gate: str | None = None  # config dotpath; when truthy, overrides cli_only for gateway
+    cli_only: bool = False  # only available in CLI
+    gateway_only: bool = False  # only available in gateway/messaging
+    gateway_config_gate: str | None = (
+        None  # config dotpath; when truthy, overrides cli_only for gateway
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -63,150 +66,322 @@ class CommandDef:
 
 COMMAND_REGISTRY: list[CommandDef] = [
     # Session
-    CommandDef("new", "开启新会话（重置会话 ID 和历史记录）", "Session",
-               aliases=("reset",), args_hint="[name]"),
-    CommandDef("clear", "清屏并开始新会话", "Session",
-               cli_only=True),
-    CommandDef("redraw", "强制完整重绘 UI（修复终端显示漂移）", "Session",
-               cli_only=True),
-    CommandDef("history", "显示对话历史记录", "Session",
-               cli_only=True),
-    CommandDef("save", "保存当前对话", "Session",
-               cli_only=True),
+    CommandDef(
+        "new",
+        "开启新会话（重置会话 ID 和历史记录）",
+        "Session",
+        aliases=("reset",),
+        args_hint="[name]",
+    ),
+    CommandDef("clear", "清屏并开始新会话", "Session", cli_only=True),
+    CommandDef(
+        "redraw", "强制完整重绘 UI（修复终端显示漂移）", "Session", cli_only=True
+    ),
+    CommandDef("history", "显示对话历史记录", "Session", cli_only=True),
+    CommandDef("save", "保存当前对话", "Session", cli_only=True),
     CommandDef("retry", "重试最后一条消息（重新发送给智能体）", "Session"),
     CommandDef("undo", "撤销最后一次用户/助手交互", "Session"),
-    CommandDef("title", "为当前会话设置标题", "Session",
-               args_hint="[name]"),
-    CommandDef("branch", "为当前会话创建分支（探索不同的路径）", "Session",
-               aliases=("fork",), args_hint="[name]"),
-    CommandDef("compress", "手动压缩对话上下文", "Session",
-               args_hint="[focus topic]"),
-    CommandDef("rollback", "列出或恢复文件系统检查点", "Session",
-               args_hint="[number]"),
-    CommandDef("snapshot", "创建或恢复 Hermes 配置/状态的快照", "Session",
-               cli_only=True, aliases=("snap",), args_hint="[create|restore <id>|prune]"),
+    CommandDef("title", "为当前会话设置标题", "Session", args_hint="[name]"),
+    CommandDef(
+        "branch",
+        "为当前会话创建分支（探索不同的路径）",
+        "Session",
+        aliases=("fork",),
+        args_hint="[name]",
+    ),
+    CommandDef("compress", "手动压缩对话上下文", "Session", args_hint="[focus topic]"),
+    CommandDef("rollback", "列出或恢复文件系统检查点", "Session", args_hint="[number]"),
+    CommandDef(
+        "snapshot",
+        "创建或恢复 Hermes 配置/状态的快照",
+        "Session",
+        cli_only=True,
+        aliases=("snap",),
+        args_hint="[create|restore <id>|prune]",
+    ),
     CommandDef("stop", "中止所有正在运行的后台进程", "Session"),
-    CommandDef("approve", "批准挂起的危险命令", "Session",
-               gateway_only=True, args_hint="[session|always]"),
-    CommandDef("deny", "拒绝挂起的危险命令", "Session",
-               gateway_only=True),
-    CommandDef("background", "在后台运行提示词任务", "Session",
-               aliases=("bg",), args_hint="<prompt>"),
-    CommandDef("btw", "利用会话上下文进行临时提问（不使用工具，不持久化）", "Session",
-               args_hint="<question>"),
-    CommandDef("agents", "显示活跃的智能体和运行中的任务", "Session",
-               aliases=("tasks",)),
-    CommandDef("queue", "将提示词加入下一轮任务队列（不中断当前运行）", "Session",
-               aliases=("q",), args_hint="<prompt>"),
-    CommandDef("steer", "在下一次工具调用后注入消息（不中断当前运行）", "Session",
-               args_hint="<prompt>"),
-    CommandDef("goal", "设置一个跨轮次持续执行的目标直至达成", "Session",
-               args_hint="[text | pause | resume | clear | status]"),
+    CommandDef(
+        "approve",
+        "批准挂起的危险命令",
+        "Session",
+        gateway_only=True,
+        args_hint="[session|always]",
+    ),
+    CommandDef("deny", "拒绝挂起的危险命令", "Session", gateway_only=True),
+    CommandDef(
+        "background",
+        "在后台运行提示词任务",
+        "Session",
+        aliases=("bg",),
+        args_hint="<prompt>",
+    ),
+    CommandDef(
+        "btw",
+        "利用会话上下文进行临时提问（不使用工具，不持久化）",
+        "Session",
+        args_hint="<question>",
+    ),
+    CommandDef(
+        "agents", "显示活跃的智能体和运行中的任务", "Session", aliases=("tasks",)
+    ),
+    CommandDef(
+        "queue",
+        "将提示词加入下一轮任务队列（不中断当前运行）",
+        "Session",
+        aliases=("q",),
+        args_hint="<prompt>",
+    ),
+    CommandDef(
+        "steer",
+        "在下一次工具调用后注入消息（不中断当前运行）",
+        "Session",
+        args_hint="<prompt>",
+    ),
+    CommandDef(
+        "goal",
+        "设置一个跨轮次持续执行的目标直至达成",
+        "Session",
+        args_hint="[text | pause | resume | clear | status]",
+    ),
     CommandDef("status", "显示会话状态信息", "Session"),
     CommandDef("profile", "显示当前配置文件名称和家目录", "Info"),
-    CommandDef("sethome", "将此聊天设置为家（Home）频道", "Session",
-               gateway_only=True, aliases=("set-home",)),
-    CommandDef("resume", "恢复之前命名的会话", "Session",
-               args_hint="[name]"),
-
+    CommandDef(
+        "sethome",
+        "将此聊天设置为家（Home）频道",
+        "Session",
+        gateway_only=True,
+        aliases=("set-home",),
+    ),
+    CommandDef("resume", "恢复之前命名的会话", "Session", args_hint="[name]"),
     # Configuration
-    CommandDef("config", "显示当前配置", "Configuration",
-               cli_only=True),
-    CommandDef("model", "切换当前会话的模型", "Configuration",
-               aliases=("provider",), args_hint="[model] [--provider name] [--global]"),
-    CommandDef("gquota", "显示 Google Gemini Code Assist 配额使用情况", "Info",
-               cli_only=True),
-
-    CommandDef("personality", "设置预定义的性格设定", "Configuration",
-               args_hint="[name]"),
-    CommandDef("statusbar", "切换上下文/模型状态栏的显示", "Configuration",
-               cli_only=True, aliases=("sb",)),
-    CommandDef("verbose", "循环切换工具进度显示模式：关闭 -> 简略 -> 全部 -> 详细",
-               "Configuration", cli_only=True,
-               gateway_config_gate="display.tool_progress_command"),
-    CommandDef("footer", "切换网关运行时元数据页脚显示",
-               "Configuration", args_hint="[on|off|status]",
-               subcommands=("on", "off", "status")),
-    CommandDef("yolo", "切换 YOLO 模式（跳过所有危险命令的审批）",
-               "Configuration"),
-    CommandDef("reasoning", "管理推理强度和显示方式", "Configuration",
-               args_hint="[level|show|hide]",
-               subcommands=("none", "minimal", "low", "medium", "high", "xhigh", "show", "hide", "on", "off")),
-    CommandDef("fast", "切换快速模式 — OpenAI 优先处理 / Anthropic 快速模式 (Normal/Fast)", "Configuration",
-               args_hint="[normal|fast|status]",
-               subcommands=("normal", "fast", "status", "on", "off")),
-    CommandDef("skin", "显示或更改显示皮肤/主题", "Configuration",
-               cli_only=True, args_hint="[name]"),
-    CommandDef("indicator", "选择 TUI 忙碌指示器样式", "Configuration",
-               cli_only=True, args_hint="[kaomoji|emoji|unicode|ascii]",
-               subcommands=("kaomoji", "emoji", "unicode", "ascii")),
-    CommandDef("voice", "切换语音模式", "Configuration",
-               args_hint="[on|off|tts|status]", subcommands=("on", "off", "tts", "status")),
-    CommandDef("busy", "控制当 Hermes 正在工作时按下 Enter 键的行为", "Configuration",
-               cli_only=True, args_hint="[queue|interrupt|status]",
-               subcommands=("queue", "interrupt", "status")),
-
+    CommandDef("config", "显示当前配置", "Configuration", cli_only=True),
+    CommandDef(
+        "model",
+        "切换当前会话的模型",
+        "Configuration",
+        aliases=("provider",),
+        args_hint="[model] [--provider name] [--global]",
+    ),
+    CommandDef(
+        "gquota", "显示 Google Gemini Code Assist 配额使用情况", "Info", cli_only=True
+    ),
+    CommandDef(
+        "personality", "设置预定义的性格设定", "Configuration", args_hint="[name]"
+    ),
+    CommandDef(
+        "statusbar",
+        "切换上下文/模型状态栏的显示",
+        "Configuration",
+        cli_only=True,
+        aliases=("sb",),
+    ),
+    CommandDef(
+        "verbose",
+        "循环切换工具进度显示模式：关闭 -> 简略 -> 全部 -> 详细",
+        "Configuration",
+        cli_only=True,
+        gateway_config_gate="display.tool_progress_command",
+    ),
+    CommandDef(
+        "footer",
+        "切换网关运行时元数据页脚显示",
+        "Configuration",
+        args_hint="[on|off|status]",
+        subcommands=("on", "off", "status"),
+    ),
+    CommandDef("yolo", "切换 YOLO 模式（跳过所有危险命令的审批）", "Configuration"),
+    CommandDef(
+        "reasoning",
+        "管理推理强度和显示方式",
+        "Configuration",
+        args_hint="[level|show|hide]",
+        subcommands=(
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "show",
+            "hide",
+            "on",
+            "off",
+        ),
+    ),
+    CommandDef(
+        "fast",
+        "切换快速模式 — OpenAI 优先处理 / Anthropic 快速模式 (Normal/Fast)",
+        "Configuration",
+        args_hint="[normal|fast|status]",
+        subcommands=("normal", "fast", "status", "on", "off"),
+    ),
+    CommandDef(
+        "skin",
+        "显示或更改显示皮肤/主题",
+        "Configuration",
+        cli_only=True,
+        args_hint="[name]",
+    ),
+    CommandDef(
+        "indicator",
+        "选择 TUI 忙碌指示器样式",
+        "Configuration",
+        cli_only=True,
+        args_hint="[kaomoji|emoji|unicode|ascii]",
+        subcommands=("kaomoji", "emoji", "unicode", "ascii"),
+    ),
+    CommandDef(
+        "voice",
+        "切换语音模式",
+        "Configuration",
+        args_hint="[on|off|tts|status]",
+        subcommands=("on", "off", "tts", "status"),
+    ),
+    CommandDef(
+        "busy",
+        "控制当 Hermes 正在工作时按下 Enter 键的行为",
+        "Configuration",
+        cli_only=True,
+        args_hint="[queue|interrupt|status]",
+        subcommands=("queue", "interrupt", "status"),
+    ),
     # Tools & Skills
-    CommandDef("tools", "工具管理：/tools [list|disable|enable] [名称...]", "Tools & Skills",
-               args_hint="[list|disable|enable] [name...]", cli_only=True),
-    CommandDef("toolsets", "列出可用的工具集", "Tools & Skills",
-               cli_only=True),
-    CommandDef("skills", "搜索、安装、检查或管理技能",
-               "Tools & Skills", cli_only=True,
-               subcommands=("search", "browse", "inspect", "install")),
-    CommandDef("cron", "管理定时任务", "Tools & Skills",
-               cli_only=True, args_hint="[subcommand]",
-               subcommands=("list", "add", "create", "edit", "pause", "resume", "run", "remove")),
-    CommandDef("curator", "后台技能维护（status, run, pin, archive）",
-               "Tools & Skills", args_hint="[subcommand]",
-               subcommands=("status", "run", "pause", "resume", "pin", "unpin", "restore")),
-    CommandDef("kanban", "多配置文件协作看板（任务、链接、评论）",
-               "Tools & Skills", args_hint="[subcommand]",
-               subcommands=("list", "ls", "show", "create", "assign", "link", "unlink",
-                            "claim", "comment", "complete", "block", "unblock", "archive",
-                            "tail", "dispatch", "context", "init", "gc")),
-    CommandDef("reload", "重新加载 .env 变量到当前会话", "Tools & Skills",
-               cli_only=True),
-    CommandDef("reload-mcp", "从配置重新加载 MCP 服务器", "Tools & Skills",
-               aliases=("reload_mcp",)),
-    CommandDef("reload-skills", "重新扫描 ~/.hermes/skills/ 中新安装或移除的技能",
-               "Tools & Skills", aliases=("reload_skills",)),
-    CommandDef("browser", "通过 CDP 将浏览器工具连接到你的实时 Chrome 浏览器", "Tools & Skills",
-               cli_only=True, args_hint="[connect|disconnect|status]",
-               subcommands=("connect", "disconnect", "status")),
-    CommandDef("plugins", "列出已安装插件及其状态",
-               "Tools & Skills", cli_only=True),
-
+    CommandDef(
+        "tools",
+        "工具管理：/tools [list|disable|enable] [名称...]",
+        "Tools & Skills",
+        args_hint="[list|disable|enable] [name...]",
+        cli_only=True,
+    ),
+    CommandDef("toolsets", "列出可用的工具集", "Tools & Skills", cli_only=True),
+    CommandDef(
+        "skills",
+        "搜索、安装、检查或管理技能",
+        "Tools & Skills",
+        cli_only=True,
+        subcommands=("search", "browse", "inspect", "install"),
+    ),
+    CommandDef(
+        "cron",
+        "管理定时任务",
+        "Tools & Skills",
+        cli_only=True,
+        args_hint="[subcommand]",
+        subcommands=(
+            "list",
+            "add",
+            "create",
+            "edit",
+            "pause",
+            "resume",
+            "run",
+            "remove",
+        ),
+    ),
+    CommandDef(
+        "curator",
+        "后台技能维护（status, run, pin, archive）",
+        "Tools & Skills",
+        args_hint="[subcommand]",
+        subcommands=("status", "run", "pause", "resume", "pin", "unpin", "restore"),
+    ),
+    CommandDef(
+        "kanban",
+        "多配置文件协作看板（任务、链接、评论）",
+        "Tools & Skills",
+        args_hint="[subcommand]",
+        subcommands=(
+            "list",
+            "ls",
+            "show",
+            "create",
+            "assign",
+            "link",
+            "unlink",
+            "claim",
+            "comment",
+            "complete",
+            "block",
+            "unblock",
+            "archive",
+            "tail",
+            "dispatch",
+            "context",
+            "init",
+            "gc",
+        ),
+    ),
+    CommandDef(
+        "reload", "重新加载 .env 变量到当前会话", "Tools & Skills", cli_only=True
+    ),
+    CommandDef(
+        "reload-mcp",
+        "从配置重新加载 MCP 服务器",
+        "Tools & Skills",
+        aliases=("reload_mcp",),
+    ),
+    CommandDef(
+        "reload-skills",
+        "重新扫描 ~/.hermes/skills/ 中新安装或移除的技能",
+        "Tools & Skills",
+        aliases=("reload_skills",),
+    ),
+    CommandDef(
+        "browser",
+        "通过 CDP 将浏览器工具连接到你的实时 Chrome 浏览器",
+        "Tools & Skills",
+        cli_only=True,
+        args_hint="[connect|disconnect|status]",
+        subcommands=("connect", "disconnect", "status"),
+    ),
+    CommandDef("plugins", "列出已安装插件及其状态", "Tools & Skills", cli_only=True),
     # Info
-    CommandDef("commands", "浏览所有命令和技能（分页显示）", "Info",
-               gateway_only=True, args_hint="[page]"),
+    CommandDef(
+        "commands",
+        "浏览所有命令和技能（分页显示）",
+        "Info",
+        gateway_only=True,
+        args_hint="[page]",
+    ),
     CommandDef("help", "显示可用命令", "Info"),
-    CommandDef("restart", "在排空活跃任务后优雅地重启网关", "Session",
-               gateway_only=True),
+    CommandDef(
+        "restart", "在排空活跃任务后优雅地重启网关", "Session", gateway_only=True
+    ),
     CommandDef("usage", "显示当前会话的 Token 使用量和速率限制", "Info"),
-    CommandDef("insights", "显示使用洞察和分析统计", "Info",
-               args_hint="[days]"),
-    CommandDef("platforms", "显示网关/消息平台状态", "Info",
-               cli_only=True, aliases=("gateway",)),
-    CommandDef("copy", "将助手最后一次回答复制到剪贴板", "Info",
-               cli_only=True, args_hint="[number]"),
-    CommandDef("paste", "从剪贴板粘贴并附加图片", "Info",
-               cli_only=True),
-    CommandDef("image", "为下一条提示词附加本地图片文件", "Info",
-               cli_only=True, args_hint="<path>"),
-    CommandDef("update", "将 Hermes Agent 更新到最新版本", "Info",
-               gateway_only=True),
+    CommandDef("insights", "显示使用洞察和分析统计", "Info", args_hint="[days]"),
+    CommandDef(
+        "platforms",
+        "显示网关/消息平台状态",
+        "Info",
+        cli_only=True,
+        aliases=("gateway",),
+    ),
+    CommandDef(
+        "copy",
+        "将助手最后一次回答复制到剪贴板",
+        "Info",
+        cli_only=True,
+        args_hint="[number]",
+    ),
+    CommandDef("paste", "从剪贴板粘贴并附加图片", "Info", cli_only=True),
+    CommandDef(
+        "image",
+        "为下一条提示词附加本地图片文件",
+        "Info",
+        cli_only=True,
+        args_hint="<path>",
+    ),
+    CommandDef("update", "将 Hermes Agent 更新到最新版本", "Info", gateway_only=True),
     CommandDef("debug", "上传调试报告（系统信息 + 日志）并获取分享链接", "Info"),
-
     # Exit
-    CommandDef("quit", "退出 CLI 界面", "Exit",
-               cli_only=True, aliases=("exit",)),
+    CommandDef("quit", "退出 CLI 界面", "Exit", cli_only=True, aliases=("exit",)),
 ]
 
 
 # ---------------------------------------------------------------------------
 # Derived lookups -- rebuilt once at import time, refreshed by rebuild_lookups()
 # ---------------------------------------------------------------------------
+
 
 def _build_command_lookup() -> dict[str, CommandDef]:
     """Map every name and alias to its CommandDef."""
@@ -368,6 +543,7 @@ def _resolve_config_gates() -> set[str]:
         return set()
     try:
         from hermes_cli.config import read_raw_config
+
         cfg = read_raw_config()
     except Exception:
         return set()
@@ -385,7 +561,9 @@ def _resolve_config_gates() -> set[str]:
     return result
 
 
-def _is_gateway_available(cmd: CommandDef, config_overrides: set[str] | None = None) -> bool:
+def _is_gateway_available(
+    cmd: CommandDef, config_overrides: set[str] | None = None
+) -> bool:
     """Check if *cmd* should appear in gateway surfaces (help, menus, mappings).
 
     Unconditionally available when ``cli_only`` is False.  When ``cli_only``
@@ -396,7 +574,11 @@ def _is_gateway_available(cmd: CommandDef, config_overrides: set[str] | None = N
     if not cmd.cli_only:
         return True
     if cmd.gateway_config_gate:
-        overrides = config_overrides if config_overrides is not None else _resolve_config_gates()
+        overrides = (
+            config_overrides
+            if config_overrides is not None
+            else _resolve_config_gates()
+        )
         return cmd.name in overrides
     return False
 
@@ -537,7 +719,7 @@ def _clamp_command_names(
         if len(name) > _CMD_NAME_LIMIT:
             candidate = name[:_CMD_NAME_LIMIT]
             if candidate in used:
-                prefix = name[:_CMD_NAME_LIMIT - 1]
+                prefix = name[: _CMD_NAME_LIMIT - 1]
                 for digit in range(10):
                     candidate = f"{prefix}{digit}"
                     if candidate not in used:
@@ -560,6 +742,7 @@ _clamp_telegram_names = _clamp_command_names
 # ---------------------------------------------------------------------------
 # Shared skill/plugin collection for gateway platforms
 # ---------------------------------------------------------------------------
+
 
 def _collect_gateway_skill_entries(
     platform: str,
@@ -602,6 +785,7 @@ def _collect_gateway_skill_entries(
     plugin_pairs: list[tuple[str, str]] = []
     try:
         from hermes_cli.plugins import get_plugin_commands
+
         plugin_cmds = get_plugin_commands()
         for cmd_name in sorted(plugin_cmds):
             name = sanitize_name(cmd_name) if sanitize_name else cmd_name
@@ -609,7 +793,7 @@ def _collect_gateway_skill_entries(
                 continue
             desc = plugin_cmds[cmd_name].get("description", "Plugin command")
             if len(desc) > desc_limit:
-                desc = desc[:desc_limit - 3] + "..."
+                desc = desc[: desc_limit - 3] + "..."
             plugin_pairs.append((name, desc))
     except Exception:
         pass
@@ -624,6 +808,7 @@ def _collect_gateway_skill_entries(
     _platform_disabled: set[str] = set()
     try:
         from agent.skill_utils import get_disabled_skill_names
+
         _platform_disabled = get_disabled_skill_names(platform=platform)
     except Exception:
         pass
@@ -633,6 +818,7 @@ def _collect_gateway_skill_entries(
         from agent.skill_commands import get_skill_commands
         from tools.skills_tool import SKILLS_DIR
         from agent.skill_utils import get_external_skills_dirs
+
         _skills_dir = str(SKILLS_DIR.resolve())
         _hub_dir = str((SKILLS_DIR / ".hub").resolve()).rstrip("/") + "/"
         # Build set of allowed directory prefixes: local skills dir + any
@@ -664,7 +850,7 @@ def _collect_gateway_skill_entries(
                 continue
             desc = info.get("description", "")
             if len(desc) > desc_limit:
-                desc = desc[:desc_limit - 3] + "..."
+                desc = desc[: desc_limit - 3] + "..."
             skill_triples.append((name, desc, cmd_key))
     except Exception:
         pass
@@ -686,7 +872,10 @@ def _collect_gateway_skill_entries(
 # Platform-specific wrappers
 # ---------------------------------------------------------------------------
 
-def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str]], int]:
+
+def telegram_menu_commands(
+    max_commands: int = 100,
+) -> tuple[list[tuple[str, str]], int]:
     """Return Telegram menu commands capped to the Bot API limit.
 
     Priority order (higher priority = never bumped by overflow):
@@ -793,6 +982,7 @@ def discord_skill_commands_by_category(
     _platform_disabled: set[str] = set()
     try:
         from agent.skill_utils import get_disabled_skill_names
+
         _platform_disabled = get_disabled_skill_names(platform="discord")
     except Exception:
         pass
@@ -879,7 +1069,9 @@ def discord_skill_commands_by_category(
                         "skill will not appear in the /skill autocomplete. "
                         "Rename the skill's frontmatter ``name:`` to differ "
                         "in its first 32 chars.",
-                        discord_name, cmd_key, discord_name,
+                        discord_name,
+                        cmd_key,
+                        discord_name,
                     )
                 else:
                     logger.warning(
@@ -888,7 +1080,10 @@ def discord_skill_commands_by_category(
                         "will appear in the /skill autocomplete. Rename "
                         "one skill's frontmatter ``name:`` to differ in "
                         "its first 32 chars.",
-                        prior, cmd_key, discord_name, prior,
+                        prior,
+                        cmd_key,
+                        discord_name,
+                        prior,
                     )
                 hidden += 1
                 continue
@@ -923,13 +1118,31 @@ def discord_skill_commands_by_category(
 _SLACK_MAX_SLASH_COMMANDS = 50
 _SLACK_NAME_LIMIT = 32
 _SLACK_INVALID_CHARS = re.compile(r"[^a-z0-9_\-]")
-_SLACK_RESERVED_COMMANDS = frozenset({
-    # Built-in Slack slash commands that cannot be registered by apps.
-    # https://slack.com/help/articles/201259356-Use-built-in-slash-commands
-    "me", "status", "away", "dnd", "shrug", "remind", "msg", "feed",
-    "who", "collapse", "expand", "leave", "join", "open", "search",
-    "topic", "mute", "pro", "shortcuts",
-})
+_SLACK_RESERVED_COMMANDS = frozenset(
+    {
+        # Built-in Slack slash commands that cannot be registered by apps.
+        # https://slack.com/help/articles/201259356-Use-built-in-slash-commands
+        "me",
+        "status",
+        "away",
+        "dnd",
+        "shrug",
+        "remind",
+        "msg",
+        "feed",
+        "who",
+        "collapse",
+        "expand",
+        "leave",
+        "join",
+        "open",
+        "search",
+        "topic",
+        "mute",
+        "pro",
+        "shortcuts",
+    }
+)
 
 
 def _sanitize_slack_name(raw: str) -> str:
@@ -970,7 +1183,9 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
     seen: set[str] = set()
 
     # Reserve /hermes as the catch-all top-level command.
-    entries.append(("hermes", "Talk to Hermes or run a subcommand", "[subcommand] [args]"))
+    entries.append(
+        ("hermes", "Talk to Hermes or run a subcommand", "[subcommand] [args]")
+    )
     seen.add("hermes")
 
     def _add(name: str, desc: str, hint: str) -> None:
@@ -998,7 +1213,9 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
         for alias in cmd.aliases:
             # Skip aliases that only differ from canonical by case/punctuation
             # normalization (already covered by _add dedup).
-            _add(alias, f"Alias for /{cmd.name} — {cmd.description}", cmd.args_hint or "")
+            _add(
+                alias, f"Alias for /{cmd.name} — {cmd.description}", cmd.args_hint or ""
+            )
 
     # Third pass: plugin commands.
     for name, description, args_hint in _iter_plugin_command_entries():
@@ -1007,7 +1224,9 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
     return entries
 
 
-def slack_app_manifest(request_url: str = "https://hermes-agent.local/slack/commands") -> dict[str, Any]:
+def slack_app_manifest(
+    request_url: str = "https://hermes-agent.local/slack/commands",
+) -> dict[str, Any]:
     """Generate a Slack app manifest with all gateway commands as slashes.
 
     ``request_url`` is required by Slack's manifest schema for every slash
@@ -1075,9 +1294,11 @@ def _lmstudio_completion_models() -> list[str]:
     if not (os.environ.get("LM_API_KEY") or os.environ.get("LM_BASE_URL")):
         try:
             from hermes_cli.auth import _load_auth_store
+
             store = _load_auth_store() or {}
-            if "lmstudio" not in (store.get("providers") or {}) \
-               and "lmstudio" not in (store.get("credential_pool") or {}):
+            if "lmstudio" not in (store.get("providers") or {}) and "lmstudio" not in (
+                store.get("credential_pool") or {}
+            ):
                 return []
         except Exception:
             return []
@@ -1086,6 +1307,7 @@ def _lmstudio_completion_models() -> list[str]:
         return _LMSTUDIO_COMPLETION_CACHE[1]
     try:
         from hermes_cli.models import fetch_lmstudio_models
+
         models = fetch_lmstudio_models(
             api_key=os.environ.get("LM_API_KEY", ""),
             base_url=os.environ.get("LM_BASE_URL") or "http://127.0.0.1:1234/v1",
@@ -1102,7 +1324,8 @@ class SlashCommandCompleter(Completer):
 
     def __init__(
         self,
-        skill_commands_provider: Callable[[], Mapping[str, dict[str, Any]]] | None = None,
+        skill_commands_provider: Callable[[], Mapping[str, dict[str, Any]]]
+        | None = None,
         command_filter: Callable[[str], bool] | None = None,
     ) -> None:
         self._skill_commands_provider = skill_commands_provider
@@ -1170,7 +1393,7 @@ class SlashCommandCompleter(Completer):
         i = len(text) - 1
         while i >= 0 and text[i] != " ":
             i -= 1
-        word = text[i + 1:]
+        word = text[i + 1 :]
         if not word:
             return None
         # Only trigger path completion for path-like tokens
@@ -1208,7 +1431,9 @@ class SlashCommandCompleter(Completer):
 
             # Build the completion text (what replaces the typed word)
             if word.startswith("~"):
-                display_path = "~/" + os.path.relpath(full_path, os.path.expanduser("~"))
+                display_path = "~/" + os.path.relpath(
+                    full_path, os.path.expanduser("~")
+                )
             elif os.path.isabs(word):
                 display_path = full_path
             else:
@@ -1238,7 +1463,7 @@ class SlashCommandCompleter(Completer):
         i = len(text) - 1
         while i >= 0 and text[i] != " ":
             i -= 1
-        word = text[i + 1:]
+        word = text[i + 1 :]
         if not word.startswith("@"):
             return None
         return word
@@ -1280,7 +1505,7 @@ class SlashCommandCompleter(Completer):
 
             if word == bare or word.startswith(prefix):
                 want_dir = prefix == "@folder:"
-                path_part = '' if word == bare else word[len(prefix):]
+                path_part = "" if word == bare else word[len(prefix) :]
                 expanded = os.path.expanduser(path_part)
 
                 if not expanded or expanded == ".":
@@ -1352,7 +1577,10 @@ class SlashCommandCompleter(Completer):
                 continue
             try:
                 proc = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=2,
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
                     cwd=cwd,
                 )
                 if proc.returncode == 0 and proc.stdout.strip():
@@ -1425,8 +1653,8 @@ class SlashCommandCompleter(Completer):
                 is_dir = fp.endswith("/")
                 filename = os.path.basename(fp)
                 kind = "folder" if is_dir else "file"
-                meta = "dir" if is_dir else _file_size_label(
-                    os.path.join(os.getcwd(), fp)
+                meta = (
+                    "dir" if is_dir else _file_size_label(os.path.join(os.getcwd(), fp))
                 )
                 yield Completion(
                     f"@{kind}:{fp}",
@@ -1448,9 +1676,7 @@ class SlashCommandCompleter(Completer):
             is_dir = fp.endswith("/")
             filename = os.path.basename(fp)
             kind = "folder" if is_dir else "file"
-            meta = "dir" if is_dir else _file_size_label(
-                os.path.join(os.getcwd(), fp)
-            )
+            meta = "dir" if is_dir else _file_size_label(os.path.join(os.getcwd(), fp))
             yield Completion(
                 f"@{kind}:{fp}",
                 start_position=-len(word),
@@ -1463,6 +1689,7 @@ class SlashCommandCompleter(Completer):
         """Yield completions for /skin from available skins."""
         try:
             from hermes_cli.skin_engine import list_skins
+
             for s in list_skins():
                 name = s["name"]
                 if name.startswith(sub_lower) and name != sub_lower:
@@ -1480,6 +1707,7 @@ class SlashCommandCompleter(Completer):
         """Yield completions for /personality from configured personalities."""
         try:
             from hermes_cli.config import load_config
+
             personalities = load_config().get("agent", {}).get("personalities", {})
             if "none".startswith(sub_lower) and "none" != sub_lower:
                 yield Completion(
@@ -1491,7 +1719,10 @@ class SlashCommandCompleter(Completer):
             for name, prompt in personalities.items():
                 if name.startswith(sub_lower) and name != sub_lower:
                     if isinstance(prompt, dict):
-                        meta = prompt.get("description") or prompt.get("system_prompt", "")[:50]
+                        meta = (
+                            prompt.get("description")
+                            or prompt.get("system_prompt", "")[:50]
+                        )
                     else:
                         meta = str(prompt)[:50]
                     yield Completion(
@@ -1509,8 +1740,11 @@ class SlashCommandCompleter(Completer):
         # Config-based direct aliases (preferred — include provider info)
         try:
             from hermes_cli.model_switch import (
-                _ensure_direct_aliases, DIRECT_ALIASES, MODEL_ALIASES,
+                _ensure_direct_aliases,
+                DIRECT_ALIASES,
+                MODEL_ALIASES,
             )
+
             _ensure_direct_aliases()
             for name, da in DIRECT_ALIASES.items():
                 if name.startswith(sub_lower) and name != sub_lower:
@@ -1583,7 +1817,11 @@ class SlashCommandCompleter(Completer):
                     return
 
             # Static subcommand completions
-            if " " not in sub_text and base_cmd in SUBCOMMANDS and self._command_allowed(base_cmd):
+            if (
+                " " not in sub_text
+                and base_cmd in SUBCOMMANDS
+                and self._command_allowed(base_cmd)
+            ):
                 for sub in SUBCOMMANDS[base_cmd]:
                     if sub.startswith(sub_lower) and sub != sub_lower:
                         yield Completion(
@@ -1622,6 +1860,7 @@ class SlashCommandCompleter(Completer):
         # Plugin-registered slash commands
         try:
             from hermes_cli.plugins import get_plugin_commands
+
             for cmd_name, cmd_info in get_plugin_commands().items():
                 if cmd_name.startswith(word):
                     desc = str(cmd_info.get("description", "Plugin command"))
@@ -1639,6 +1878,7 @@ class SlashCommandCompleter(Completer):
 # ---------------------------------------------------------------------------
 # Inline auto-suggest (ghost text) for slash commands
 # ---------------------------------------------------------------------------
+
 
 class SlashCommandAutoSuggest(AutoSuggest):
     """Inline ghost-text suggestions for slash commands and their subcommands.
@@ -1672,11 +1912,13 @@ class SlashCommandAutoSuggest(AutoSuggest):
             # Still typing the command name: /upd → suggest "ate"
             word = text[1:].lower()
             for cmd in COMMANDS:
-                if self._completer is not None and not self._completer._command_allowed(cmd):
+                if self._completer is not None and not self._completer._command_allowed(
+                    cmd
+                ):
                     continue
                 cmd_name = cmd[1:]  # strip leading /
                 if cmd_name.startswith(word) and cmd_name != word:
-                    return Suggestion(cmd_name[len(word):])
+                    return Suggestion(cmd_name[len(word) :])
             return None
 
         # Command is complete — suggest subcommands or model names
@@ -1684,13 +1926,15 @@ class SlashCommandAutoSuggest(AutoSuggest):
         sub_lower = sub_text.lower()
 
         # Static subcommands
-        if self._completer is not None and not self._completer._command_allowed(base_cmd):
+        if self._completer is not None and not self._completer._command_allowed(
+            base_cmd
+        ):
             return None
         if base_cmd in SUBCOMMANDS and SUBCOMMANDS[base_cmd]:
             if " " not in sub_text:
                 for sub in SUBCOMMANDS[base_cmd]:
                     if sub.startswith(sub_lower) and sub != sub_lower:
-                        return Suggestion(sub[len(sub_text):])
+                        return Suggestion(sub[len(sub_text) :])
 
         # Fall back to history
         if self._history:
